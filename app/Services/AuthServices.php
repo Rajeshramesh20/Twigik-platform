@@ -111,11 +111,19 @@ class AuthServices{
             'email_verified_at' => Carbon::now()
         ]);
 
-        $authToken->update(['revoked_at' => Carbon::now()]);
+        $organization = $user->organizations()->first();
+        if ($organization) {
+             $organization->update(['status' => true]);
 
+            //Create dynamic DB
+            $dbName = $organization->db_name ?? Str::slug($organization->org_name, '_');
+            DB::statement("CREATE DATABASE IF NOT EXISTS `$dbName`");
+        }
+        $authToken->update(['revoked_at' => Carbon::now()]);
+        
         return [
             'status'  => true,
-            'message' => 'Email verified successfully',
+            'message' => 'Email verified successfully & organization database created',
             'code'    => 200
         ];
     }
