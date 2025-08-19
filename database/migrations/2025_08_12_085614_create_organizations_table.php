@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('organizations', function (Blueprint $table) {
             $table->id('org_id');
-            $table->string('org_name')->nullable();
-            $table->string('db_name')->nullable(); 
-            $table->string('db_user')->nullable(); 
-            $table->string('db_pswd')->nullable();
+            $table->string('org_name');
+            $table->string('db_name'); 
+            $table->string('db_user'); 
+            $table->string('db_pswd');
             $table->boolean('status')->default(true);
             $table->timestamps();
             $table->boolean('is_deleted')->default(false); 

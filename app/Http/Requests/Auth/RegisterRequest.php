@@ -38,7 +38,7 @@ class RegisterRequest extends FormRequest
 
 
             // Organization fields
-            'org_name'        => 'required|string|max:255',
+            'org_name'        => 'required|string|max:255|Unique:organizations,org_name',
             'db_name'         => 'nullable|string|max:255',
             'db_user'         => 'nullable|string|max:255',
             'db_pswd'         => 'nullable|string|max:255',
