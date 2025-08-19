@@ -6,20 +6,21 @@ use App\Models\User;
 use App\Models\Auth\AuthToken;
 use App\Models\Auth\Organization;
 use App\Models\Auth\OrganizationUser;
-
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Illuminate\Support\Carbon;
 
-class AuthServices
-{
-  public function register(array $data){
+class AuthServices{
+
+  //user registration
+  public function register(array $data)
+  {
         
-    $user = User::create([
+        $user = User::create([
             'user_uuid'       => $data['user_uuid'] ?? Str::uuid()->toString(),
             'name'            => $data['name'],
             'email'           => $data['email'],
@@ -30,7 +31,7 @@ class AuthServices
             'failed_attempts' => 0,
             'recovery_token'  => null,
             'is_deleted'      => false,
-      ]);
+         ]);
 
         $organization = Organization::create([
             'org_name'   => $data['org_name'], 
@@ -63,11 +64,6 @@ class AuthServices
 
         $verificationLink = url('/verify-email?token=' . $token);
 
-        // // Send email 
-        // Mail::send('emails.verify', ['link' => $verificationLink, 'name' => $data['name']], function ($message) use ($data) {
-        //     $message->to($data['email']);
-        //     $message->subject('Verify Your Email');
-        // });
         Mail::send([], [], function ($message) use ($data, $verificationLink) {
             $message->to($data['email'])
                 ->subject('Verify Your Email')
@@ -83,7 +79,7 @@ class AuthServices
         return $user;
   }
 
-  
+    //email verification
     public function verifyEmail($token)
     {
         $authToken = AuthToken::where('token', $token)
@@ -124,46 +120,98 @@ class AuthServices
         ];
     }
 
+    //user login
+    public function userLogin($data)
+    {
 
-        public function userLogin($data){
+        $user =  User::where('email', $data['email'])->first();
 
-            $userData = [
-                'email'    => $data['email'],
-                'password' => $data['password'],
-            ];
-
-            if(!Auth::attempt($userData)){
-                return [
-                    'status'  => false,
-                    'message' => 'Invalid credentials provided',
-                    'code'    => 404
-                ];
-            }
-
-            $user = User::where('email', $data['email'])->first();
-
-            if(!$user->is_verified){              
-                return [
-                    'status'  => false,
-                    'message' => 'Email does not verified!',
-                    'code'    => 400
-                ];
-            }
-
-            $tokenResult = $user->createToken('userToken')->accessToken;
-
+        // Check if user is found
+        if(!$user){
             return [
-                    'status' => true,
-                    'message' => 'Login Successfully',
-                    'data'   => auth()->user(),
-                    'token'  => $tokenResult,
-                    'code'   => 200
+                'status'  => false,
+                'message' => 'Invalid credentials provided',
+                'code'    => 401
             ];
         }
 
-        //logout
-        public function userLogout($request){
+        // Check if user is locked
+        if($user->lockout_time && $user->lockout_time > now()){
+            return [
+                'status'  => false,
+                'message' => 'Too many failed attempts. Try again after 5 minutes',
+                'code'    => 403
+            ];
+        }
 
+        $userData = [
+            'email'    => $data['email'],
+            'password' => $data['password'],
+        ];
+
+        if(!Auth::attempt($userData)){
+
+            $user->increment('failed_attempts');
+
+             //Lock Login in 5 minutes
+             if($user->failed_attempts >= 5) {
+                $user->update([
+                    'lockout_time' => now()->addMinutes(5), // lock 5 mins
+                    'failed_attempts' => 0 
+            ]);
+            return [
+                'status'  => false,
+                'message' => 'Too many failed attempts. Please Try again after 5 minutes',
+                'code'    => 403
+            ];
+            }
+            return [
+                'status'  => false,
+                 'message' => 'Invalid credentials provided',
+                'code'    => 404
+            ];
+        }
+
+            // $user = Auth::user();
+
+        if(!$user->is_verified){              
+            return [
+                'status'  => false,
+                'message' => 'Email does not verified!',
+                'code'    => 400
+            ];
+        }
+
+        $user->update([
+            'last_login_at'   => Carbon::now(),
+            'lockout_time'    => null
+        ]);
+
+        $tokenResult = $user->createToken('userToken');
+        $token = $tokenResult->accessToken;
+        $tokenExpiry = $tokenResult->token->expires_at;
+
+       Log::info('Org data', $user->organizations->toArray());
+
+        return [
+            'status'  => true,
+            'message' => 'Login Successfully',
+            'data'    => auth()->user(),
+            'organization' => $user->organizations->map(function($org){
+                return [
+                    'id'   => $org->org_id,
+                    'name' => $org->org_name,
+                ];
+                }),
+            'token'   => $token,
+            'expires_in' => $tokenExpiry->diffInSeconds(now()),
+            'code'    => 200
+        ];
+    }
+
+    //logout 
+    public function userLogout($request)
+    {
             $request->user()->token()->revoke();
 
              return [
@@ -198,26 +246,26 @@ class AuthServices
         );
 
         $resetPasswordLink = url('/reset-password?token=' . $token);
+        $htmlContent = "
+                <p>Forget Password Email</p>
+                <p>You can reset your password from the link below:</p>
+                <p><a href='{$resetPasswordLink}'>Reset Password Link</a></p>
+            ";
 
-        Mail::send([], [], function ($message) use ($data, $resetPasswordLink) {
+        Mail::send([], [], function ($message) use ($data, $resetPasswordLink, $htmlContent) {
             $message->to($data['email'])
                     ->subject('Reset Password')
-            ->html(
-                    "forget Password Email" .
-                    "you can reset password from below link:".
-                    "<a href='{$resetPasswordLink}'>Reset Password Link</a><br><br>" .
-                    "Regards,<br>Your App Team"
-                );
+                    ->html($htmlContent);
         });
         
         return [
             'status'  => 'success',
-            'message' => 'We have emailed you a reset password link.',
+            'message' => 'Password reset link sent to ' . $data['email'],
             'code'    => 200
         ];
     }
 
-
+    //submit reset password
     public function submitResetPasswordForm($data)
     {
         //check if the email and token exist in the Table
@@ -244,13 +292,14 @@ class AuthServices
 
          return [
             'status'  => 'success',
-            'message' => 'Password has been successfully reset.',
+            'message' => 'Password updated successfully.',
             'code'    => 200
         ];
     }
 
     //Change Password(after Login)
-    public function changePassword($data){
+    public function changePassword($data)
+    {
 
             $currentPassword = $data['current_password'];
             $newPassword = $data['new_password'];
@@ -271,7 +320,7 @@ class AuthServices
             return [
                 'status'  => true,
                 'code'    => 200,
-                'message' => 'Password updated successfully'
+                'message' => 'Password changed successfully.'
             ];
     }
 }

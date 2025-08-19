@@ -4,10 +4,8 @@ namespace App\Models\Auth;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
-/**
- * @mixin IdeHelperOrganization
- */
 class Organization extends Model
 {
     use HasFactory;
@@ -25,4 +23,9 @@ class Organization extends Model
     ];
 
     public $timestamps = true;
+
+     public function users()
+    {
+        return $this->belongsToMany(User::class, 'organization_users', 'user_id', 'org_id');
+    }
 }
