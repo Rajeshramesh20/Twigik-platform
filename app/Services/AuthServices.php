@@ -172,8 +172,6 @@ class AuthServices{
             ];
         }
 
-            // $user = Auth::user();
-
         if(!$user->is_verified){              
             return [
                 'status'  => false,
@@ -191,7 +189,8 @@ class AuthServices{
         $token = $tokenResult->accessToken;
         $tokenExpiry = $tokenResult->token->expires_at;
 
-       Log::info('Org data', $user->organizations->toArray());
+        Log::error('organization' , ['organization' =>  $user->organizations]);
+        // Log::info('token expires time', ['token' => $tokenExpiry]);
 
         return [
             'status'  => true,
@@ -208,6 +207,7 @@ class AuthServices{
             'code'    => 200
         ];
     }
+
 
     //logout 
     public function userLogout($request)
