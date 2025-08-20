@@ -52,7 +52,7 @@ class CommonService
     //send verify mail link
     public function sendVerifyEmail($data, $verificationLink){
 
-        $template = EmailVerify::where('key', 'verify_email')->first();
+        $template = EmailVerify::findBy('key', 'password_reset');
 
         //replace the value 
         $bodyContent = str_replace(
@@ -68,5 +68,23 @@ class CommonService
                 ->html($bodyContent);
         });   
     }
-   
+
+    public function sendForgotPasswordEmail($data, $resetPasswordLink)
+    {
+
+        $template = EmailVerify::findBy('key', 'password_reset');
+          
+        $bodyContent = str_replace(
+            ['{{verification_link}}'],
+            [$resetPasswordLink],
+            $template->body
+        );
+
+        // Send email
+        Mail::send([], [], function ($message) use ($data, $template, $bodyContent) {
+            $message->to($data['email'])
+                ->subject($template->subject)
+                ->html($bodyContent);
+        });
+    }
 }
