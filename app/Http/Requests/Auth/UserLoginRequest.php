@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class UserLoginRequest extends FormRequest
 {
@@ -21,9 +23,24 @@ class UserLoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        // return [
+        //     'email' => 'required|email|exists:users,email|email_verified_at,true',
+        //     'password' => 'required|min:6'
+        // ];
         return [
-            'email' => 'required|email|exists:users,email',
-            'password' => 'required|min:6'
+            'email' => [
+                'required',
+                'email',
+                function ($attribute, $value, $fail) {
+                    $user = DB::table('users')->where('email', $value)->first();
+                    if (!$user) {
+                        $fail('The selected email is invalid.');
+                    } elseif (!$user->is_verified) {
+                        $fail('Email is not verified!');
+                    }
+                },
+            ],
+            'password' => 'required|min:6',
         ];
     }
 }

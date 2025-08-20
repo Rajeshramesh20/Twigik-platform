@@ -10,6 +10,7 @@ use Laravel\Passport\HasApiTokens;
 use App\Models\Auth\AuthToken;
 use App\Models\Auth\Organization;
 
+
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
@@ -71,6 +72,14 @@ class User extends Authenticatable
      public function organizations()
     {
         return $this->belongsToMany(Organization::class, 'organization_users', 'user_id', 'org_id');
+    } 
+
+
+    public static function findBy($column,$value){
+        return static::where($column,$value)->first();
     }
 
+
+
+     
 }

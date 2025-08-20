@@ -29,4 +29,11 @@ class AuthToken extends Model
     public function user(){
         return $this->belongsTo(User::class , 'user_id');
     }
+
+    public static function findActiveByToken(string $token)
+    {
+        return self::where('token', $token)
+            ->whereNull('revoked_at')
+            ->first();
+    }
 }
