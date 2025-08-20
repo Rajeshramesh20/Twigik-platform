@@ -34,7 +34,7 @@ class AuthController extends Controller
                 return response([
                     'status'  => true,
                     'data'    => $user,
-                    'message' => 'User and organization registered successfully.',
+                    'message' => __('auth.signup_succes'),
                 ], 201);
             }
 
@@ -44,8 +44,8 @@ class AuthController extends Controller
 
             Log::error('Registration failed', ['error_message' => $e->getMessage()]);
             return response([
-                'status' => false, 
-                'message' => 'Registration failed. Please try again later.'
+                'status'  => false, 
+                'message' => __('auth.signup_failed')
             ], 500);
     }
      
@@ -61,7 +61,7 @@ class AuthController extends Controller
             if (!$token) {
                 return response()->json([
                     'status'  => false,
-                    'message' => 'Token is required'
+                    'message' => __('auth.token')
                 ], 400);
             }
 
@@ -114,7 +114,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status'  => false,
-            'message' => 'Login Failed',
+            'message' => __('auth.login_failed'),
             'error'   => $e->getMessage()
         ], 500);
      }
@@ -139,7 +139,7 @@ class AuthController extends Controller
 
                 return response()->json([
                     'status'  => false,
-                    'message' => 'Logout Failed',
+                    'message' => __('auth.logout_failed'),
                     'error'   => $e->getMessage()
                 ], 500);
             }
@@ -184,7 +184,7 @@ class AuthController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'failed to change password.',
+                'message' => __('auth.change_password_failed'),
                 'error' => $e->getMessage()
             ]);
         }
@@ -208,7 +208,7 @@ class AuthController extends Controller
             Log::error('error in change password' . $e->getMessage());
             return response()->json([
                 'status' => false,
-                'message' => 'error in change password'
+                'message' => $e->getMessage()
             ]);
         }
 }
