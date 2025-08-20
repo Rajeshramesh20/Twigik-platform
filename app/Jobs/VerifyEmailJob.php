@@ -6,24 +6,24 @@ use App\Services\CommonService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-class VerifyEmail implements ShouldQueue
+class verifyEmailJob implements ShouldQueue
 {
     use Queueable;
 
     protected $data;
     protected $verificationLink;
 
-    public function __construct()
+    public function __construct(array $data, string $verificationLink)
     {
         $this->data = $data;
-        $this->verificationLink = $verificationLink
+        $this->verificationLink = $verificationLink;
     }
 
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(CommonService $commonService)
     {
-        $CommonService->sendVerifyEmail($this->data, $this->verificationLink);
+        $commonService->sendVerifyEmail($this->data, $this->verificationLink);
     }
 }

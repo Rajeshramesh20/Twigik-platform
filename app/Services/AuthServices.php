@@ -20,7 +20,7 @@ use App\Services\CommonService;
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
 
-use App\Jobs\verifyEmail;
+use App\Jobs\verifyEmailJob;
 
 use Throwable;
 
@@ -76,12 +76,12 @@ class AuthServices
 
             $verificationLink = url('/verify-email?token=' . $token);
 
-            verifyEmail::dispatch($data, $verificationLink);
+            verifyEmailJob::dispatch($data, $verificationLink);
 
-                return $user;
+            return $user;
 
             }catch(Throwable $e) {
-                 Log::error('Registration failed', ['error_message' => $e->getMessage()]);
+                 Log::error('Registration failed where', ['error_message' => $e->getMessage()]);
             }
     }
 
