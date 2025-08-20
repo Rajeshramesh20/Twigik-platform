@@ -20,7 +20,7 @@ use App\Services\CommonService;
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
 
-use App\Jobs\verifyEmail;
+use App\Jobs\verifyEmailJob;
 
 use Throwable;
 
@@ -29,7 +29,7 @@ class AuthServices
     //user registration
     public function register(array $data)
     {
-        try {    
+        try {
             //create User Table
             $user = User::create([
                 'user_uuid'       => $data['user_uuid'] ?? Str::uuid()->toString(),
@@ -42,11 +42,11 @@ class AuthServices
                 'failed_attempts' => 0,
                 'recovery_token'  => null,
                 'is_deleted'      => false,
-             ]);
+            ]);
 
             //create Organization Table
             $organization = Organization::create([
-                'org_name'   => $data['org_name'], 
+                'org_name'   => $data['org_name'],
                 'db_name'    => $data['db_name'] ?? null,
                 'db_user'    => $data['db_user'] ?? null,
                 'db_pswd'    => $data['db_pswd'] ?? null,
@@ -76,23 +76,22 @@ class AuthServices
 
             $verificationLink = url('/verify-email?token=' . $token);
 
-            verifyEmail::dispatch($data, $verificationLink);
+            verifyEmailJob::dispatch($data, $verificationLink, 'verify');
 
-                return $user;
-
-            }catch(Throwable $e) {
-                 Log::error('Registration failed', ['error_message' => $e->getMessage()]);
-            }
+            return $user;
+        } catch (Throwable $e) {
+            Log::error('Registration failed', ['error_message' => $e->getMessage()]);
+        }
     }
 
     //email verification
     public function verifyEmail($token)
     {
         try {
-  
-        $authToken = AuthToken::findActiveByToken($token);
-     
-        Log::error('auth token' . $authToken);
+
+            $authToken = AuthToken::findActiveByToken($token);
+
+            Log::error('auth token' . $authToken);
             if (!$authToken) {
                 return [
                     'status'  => false,
@@ -101,7 +100,7 @@ class AuthServices
                 ];
             }
 
-           // Check if token is expiry
+            // Check if token is expiry
             if (Carbon::now()->greaterThan($authToken->expires_at)) {
                 return [
                     'status'  => false,
@@ -111,15 +110,15 @@ class AuthServices
             }
 
             $user = $authToken->user;
-            
+
             //update the email verify column
             $user->update([
                 'is_verified' => true,
                 'email_verified_at' => Carbon::now()
             ]);
 
-           
-           
+
+
 
             $organization = $user->organizations()->first();
 
@@ -128,20 +127,18 @@ class AuthServices
                 //Create dynamic DB
                 $common->activateOrganization($organization);
             }
-            
-             $authToken->update(['revoked_at' => Carbon::now()]);
+
+            $authToken->update(['revoked_at' => Carbon::now()]);
 
             return [
                 'status'  => true,
                 'message' => __('auth.mail_verification'),
                 'code'    => 200
             ];
-
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
 
             Log::error('Error in verify email', ['error_message' => $e->getMessage()]);
         }
-
     }
 
     //user login
@@ -149,79 +146,78 @@ class AuthServices
     {
 
 
-    try {
+        try {
 
-        $user =  User::findBy('email', $data['email']);
+            $user =  User::findBy('email', $data['email']);
 
-        // Check if user is found
-        if (!$user) {
-            return [
-                'status'  => false,
-                'message' => __('auth.login_failed'),
-                'code'    => 401
-            ];
-        }
+            // Check if user is found
+            if (!$user) {
+                return [
+                    'status'  => false,
+                    'message' => __('auth.login_failed'),
+                    'code'    => 401
+                ];
+            }
 
-        // Check if user is locked
-        if ($user->lockout_time && $user->lockout_time > now()) {
-            return [
-                'status'  => false,
-                'message' => __('auth.login_attempts'),
-                'code'    => 403
-            ];
-        }
-
-        //requested Data
-        $userData = [
-            'email'    => $data['email'],
-            'password' => $data['password'],
-        ];
-
-        if (!Auth::attempt($userData)) {
-
-            $user->increment('failed_attempts');
-
-            //Lock Login in 5 minutes
-            if ($user->failed_attempts >= 5) {
-                $user->update([
-                    'lockout_time' => now()->addMinutes(5), // lock 5 mins
-                    'failed_attempts' => 0 
-            ]);
+            // Check if user is locked
+            if ($user->lockout_time && $user->lockout_time > now()) {
                 return [
                     'status'  => false,
                     'message' => __('auth.login_attempts'),
                     'code'    => 403
                 ];
             }
-            return [
-                'status'  => false,
-                'message' =>  __('auth.login_failed'),                  
+
+            //requested Data
+            $userData = [
+                'email'    => $data['email'],
+                'password' => $data['password'],
+            ];
+
+            if (!Auth::attempt($userData)) {
+
+                $user->increment('failed_attempts');
+
+                //Lock Login in 5 minutes
+                if ($user->failed_attempts >= 5) {
+                    $user->update([
+                        'lockout_time' => now()->addMinutes(5), // lock 5 mins
+                        'failed_attempts' => 0
+                    ]);
+                    return [
+                        'status'  => false,
+                        'message' => __('auth.login_attempts'),
+                        'code'    => 403
+                    ];
+                }
+                return [
+                    'status'  => false,
+                    'message' =>  __('auth.login_failed'),
                 ];
-                
-        }
-        $user->update([
-            'last_login_at'   => Carbon::now(),
-            'lockout_time'    => null
-        ]);
+            }
+            $user->update([
+                'last_login_at'   => Carbon::now(),
+                'lockout_time'    => null
+            ]);
 
-        $tokenResult = $user->createToken('userToken');
-        
-        $token = $tokenResult->accessToken;
-        $tokenExpiry = $tokenResult->token->expires_at;
+            $tokenResult = $user->createToken('userToken');
 
-        Log::error('organization', ['organization' =>  $user->organizations]);
-        // Log::info('token expires time', ['token' => $tokenExpiry]);
+            $token = $tokenResult->accessToken;
+            $tokenExpiry = $tokenResult->token->expires_at;
 
-        return [
-            'status'  => true,
-            'message' => __('auth.login_success'),
-            'data'    =>  new LoginResource(auth()->user()),
-            'organization' => OrgResource::collection($user->organizations),
-            'token'   => $token,
-            'expires_in' => $tokenExpiry->diffInSeconds(now()),
-            'code'    => 200
-        ];
-        }catch(Throwable $e){
+            Log::error('organization', ['organization' =>  $user->organizations]);
+            // Log::info('token expires time', ['token' => $tokenExpiry]);
+
+            return [
+                'status'  => true,
+                'message' => __('auth.login_success'),
+                'data'    =>  new LoginResource(auth()->user()),
+                'organization' => OrgResource::collection($user->organizations),
+                'token'   => $token,
+                'expires_in' => $tokenExpiry->diffInSeconds(now()),
+                'code'    => 200
+            ];
+        } catch (Throwable $e) {
             Log::error('Login Failed', ['error_message' => $e->getMessage()]);
         }
     }
@@ -230,18 +226,18 @@ class AuthServices
     //logout 
     public function userLogout($request)
     {
-        try{
+        try {
             // token is revoke(1)
             $request->user()->token()->revoke();
 
-             return [
+            return [
                 'status'  => true,
                 'message' => __('auth.logout'),
                 'code'    => 200
             ];
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
             Log::error('Error: logout failed', ['error_message' => $e->getMessage()]);
-        }    
+        }
     }
 
 
@@ -249,12 +245,12 @@ class AuthServices
     public function submitForgotPasswordForm($data)
     {
 
-        try{
+        try {
             $common = new CommonService();
             $user =  User::findBy('email', $data['email']);
 
             // Check if user email is found
-            if(!$user){
+            if (!$user) {
                 return [
                     'status' => 'error',
                     'message' => __('auth.email_error'),
@@ -266,31 +262,21 @@ class AuthServices
             $token = Str::random(64);
 
             //insert the token&email into (password_reset_tokens) table
-              $common->updateOrInsert(
-                        'password_reset_tokens',
-                        ['email' => $data['email']],
-                        ['token' => $token,'created_at' => Carbon::now()]
-                    );
+            $common->updateOrInsert(
+                'password_reset_tokens',
+                ['email' => $data['email']],
+                ['token' => $token, 'created_at' => Carbon::now()]
+            );
 
             $resetPasswordLink = url('/reset-password?token=' . $token);
-            $htmlContent = "
-                    <p>Forget Password Email</p>
-                    <p>You can reset your password from the link below:</p>
-                    <p><a href='{$resetPasswordLink}'>Reset Password Link</a></p>
-                ";
+            verifyEmailJob::dispatch($data, $resetPasswordLink, 'forgot');
 
-            Mail::send([], [], function ($message) use ($data, $resetPasswordLink, $htmlContent) {
-                $message->to($data['email'])
-                        ->subject('Reset Password')
-                        ->html($htmlContent);
-            });
-        
             return [
                 'status'  => 'success',
                 'message' => __('auth.reset_link') . $data['email'],
                 'code'    => 200
             ];
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
             Log::error('error in submit forgetpassword', ['error_message' => $e->getMessage()]);
         }
     }
@@ -299,28 +285,28 @@ class AuthServices
     public function submitResetPasswordForm($data)
     {
 
-        try{
+        try {
             $common = new CommonService();
 
             //check if the email and token exist in the Table
-             $record = $common->findRecord('password_reset_tokens', [
+            $record = $common->findRecord('password_reset_tokens', [
                 'email' => $data['email'],
                 'token' => $data['token'],
             ]);
 
 
             //if the record is not found
-            if(!$record){
+            if (!$record) {
                 return [
                     'status'  => 'error',
                     'message' => __('auth.token_email_err'),
                     'code'    => 400
                 ];
-            }    
+            }
 
             $user =  User::findBy('email', $data['email']);
 
-             //Update the User Password
+            //Update the User Password
             if ($user) {
                 $user->update(['password' => Hash::make($data['password'])]);
             }
@@ -330,29 +316,28 @@ class AuthServices
                 'email' => $data['email'],
             ]);
 
-             return [
+            return [
                 'status'  => 'success',
                 'message' => __('auth.reset_password'),
                 'code'    => 200
             ];
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
             Log::error('error in reset password', ['error_message' => $e->getMessage()]);
         }
-
     }
 
 
     //Change Password(after Login)
     public function changePassword($data)
     {
-        try{
+        try {
             $currentPassword = $data['current_password'];
             $newPassword = $data['new_password'];
 
             $user = Auth::user();
 
             //check the current password is same the user password
-            if(!Hash::check($currentPassword, $user->password)){
+            if (!Hash::check($currentPassword, $user->password)) {
                 return [
                     'status'    => false,
                     'code'      => 400,
@@ -368,7 +353,7 @@ class AuthServices
                 'code'    => 200,
                 'message' => __('auth.change_password_success')
             ];
-        }catch(Throwable $e){
+        } catch (Throwable $e) {
             Log::error('error in change password', ['error_message' => $e->getMessage()]);
         }
     }
