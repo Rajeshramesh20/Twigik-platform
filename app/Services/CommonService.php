@@ -4,14 +4,17 @@ namespace App\Services;
 
 
 use Illuminate\Support\Facades\DB;
-use Mail;
+
 use App\Jobs\CreateOrganizationDatabaseJob;
 use App\Models\Auth\Organization;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Auth\EmailVerify;
-use App\Jobs\verifyEmailJob;
+
+
 
 class CommonService
 {
+    //check if the given column name is found
     public function findRecord($table, $conditions)
     {
         return DB::table($table)
@@ -19,6 +22,7 @@ class CommonService
             ->first();
     }
 
+    //delete the record after the token used
     public function deleteRecord($table, $conditions)
     {
         return DB::table($table)
@@ -26,6 +30,7 @@ class CommonService
         ->delete();
     }
 
+    //update or insert(reset password table)
     public function updateOrInsert($table, $conditions, $values)
     {
         return DB::table($table)
@@ -33,6 +38,7 @@ class CommonService
     }
 
 
+    //DB creation(Job)
     public function activateOrganization(Organization $organization)
     {
         // Mark organization as active
@@ -43,10 +49,12 @@ class CommonService
     }
 
 
+    //send verify mail link
     public function sendVerifyEmail($data, $verificationLink){
 
         $template = EmailVerify::where('key', 'verify_email')->first();
 
+        //replace the value 
         $bodyContent = str_replace(
             ['{{name}}', '{{verification_link}}'],
             [$data['name'], $verificationLink],

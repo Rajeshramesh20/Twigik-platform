@@ -74,8 +74,10 @@ class AuthServices
             ]);
 
 
+            //verification mail link
             $verificationLink = url('/verify-email?token=' . $token);
 
+            //send Mail use Job
             verifyEmailJob::dispatch($data, $verificationLink);
 
             return $user;
@@ -90,9 +92,11 @@ class AuthServices
     {
         try {
   
-        $authToken = AuthToken::findActiveByToken($token);
+            //check token is found
+            $authToken = AuthToken::findActiveByToken($token);
      
-        Log::error('auth token' . $authToken);
+            // Log::error('auth token' . $authToken);
+
             if (!$authToken) {
                 return [
                     'status'  => false,
@@ -118,9 +122,7 @@ class AuthServices
                 'email_verified_at' => Carbon::now()
             ]);
 
-           
-           
-
+            //create Dynamic DB use user Org Name
             $organization = $user->organizations()->first();
 
             $common = new CommonService();
@@ -272,18 +274,8 @@ class AuthServices
                         ['token' => $token,'created_at' => Carbon::now()]
                     );
 
+            //reset password link
             $resetPasswordLink = url('/reset-password?token=' . $token);
-            $htmlContent = "
-                    <p>Forget Password Email</p>
-                    <p>You can reset your password from the link below:</p>
-                    <p><a href='{$resetPasswordLink}'>Reset Password Link</a></p>
-                ";
-
-            Mail::send([], [], function ($message) use ($data, $resetPasswordLink, $htmlContent) {
-                $message->to($data['email'])
-                        ->subject('Reset Password')
-                        ->html($htmlContent);
-            });
         
             return [
                 'status'  => 'success',
