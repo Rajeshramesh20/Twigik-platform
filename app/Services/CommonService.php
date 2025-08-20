@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 use App\Jobs\CreateOrganizationDatabaseJob;
 use App\Models\Auth\Organization;
+use Illuminate\Support\Facades\Mail;
+use App\Models\Auth\EmailVerify;
+
 
 class CommonService
 {
@@ -47,7 +50,7 @@ class CommonService
 
         $bodyContent = str_replace(
             ['{{name}}', '{{verification_link}}'],
-            [$this->data['name'], $this->verificationLink],
+            [$data['name'], $verificationLink],
             $template->body
         );
 
