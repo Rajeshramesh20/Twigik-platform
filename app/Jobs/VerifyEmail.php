@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\CommonService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -10,12 +11,12 @@ class VerifyEmail implements ShouldQueue
     use Queueable;
 
     protected $data;
-    protected $resetPasswordLink;
+    protected $verificationLink;
 
     public function __construct()
     {
         $this->data = $data;
-        $this->resetPasswordLink = $resetPasswordLink
+        $this->verificationLink = $verificationLink
     }
 
     /**
@@ -23,16 +24,6 @@ class VerifyEmail implements ShouldQueue
      */
     public function handle(): void
     {
-        $template = EmailVerify::where('key', 'verify_email')->first();
-
-        $bodyContent = str_replace(
-            ['{{name}}', '{{verification_link}}'],
-            [$this->data['name'], $this->verificationLink],
-            $template->body
-        );
-
-         return Mail::send(subject($template->subject)
-                        ->html($bodyContent)
-                  );      
+        $CommonService->sendVerifyEmail($this->data, $this->verificationLink);
     }
 }

@@ -25,14 +25,12 @@ Route::get('/verify-email', [AuthController::class, 'verifyEmail']);
 Route::POST('/auth/reset-password', [AuthController::class, 'submitForgetPassword']);
 Route::POST('/auth/reset-password/confirm', [AuthController::class, 'submitResetPassword']);
 
-
 Route::controller(AuthController::class)        
         ->as('')
         ->middleware(['auth:api'])
-        ->group(function () {
-
-
+        ->group(function () {            
     Route::POST('/auth/logout', 'userLogout');
-    Route::POST('/auth/change-password', 'changePassword');
-              
+    Route::POST('/auth/change-password', 'changePassword');         
 });
+
+

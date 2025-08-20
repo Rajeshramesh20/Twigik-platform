@@ -81,8 +81,6 @@ class AuthController extends Controller
         }
     }
 
-
-
     // User Login 
     public function userLogin(UserLoginRequest $request, AuthServices $login)
     {
@@ -119,7 +117,6 @@ class AuthController extends Controller
         ], 500);
      }
  }
-
 
     // User Logout 
     public function userLogout(Request $request, AuthServices $logout)

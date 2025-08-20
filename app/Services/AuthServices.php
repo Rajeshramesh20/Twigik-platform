@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Services\CommonService;
+
 
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
@@ -76,18 +78,6 @@ class AuthServices
 
             verifyEmail::dispatch($data, $verificationLink);
 
-            // Mail::send([], [], function ($message) use ($data, $verificationLink) {
-            //     $message->to($data['email'])
-            //         ->subject('Verify Your Email')
-            //         ->html(
-            //             "Hi {$data['name']},<br><br>" .
-            //                 "Please verify your email by clicking the link below:<br>" .
-            //                 "<a href='{$verificationLink}'>Verify Email</a><br><br>" .
-            //                 "This link will expire in 30 minutes.<br><br>" .
-            //                 "Regards,<br>Your App Team"
-            //         );
-            // });
-
                 return $user;
 
             }catch(Throwable $e) {
@@ -99,12 +89,10 @@ class AuthServices
     public function verifyEmail($token)
     {
         try {
-            $authToken = AuthToken::where('token', $token)
-                ->whereNull('revoked_at')
-                ->first();
-
-            // Log::error('auth token' . $authToken);  
-
+  
+        $authToken = AuthToken::findActiveByToken($token);
+     
+        Log::error('auth token' . $authToken);
             if (!$authToken) {
                 return [
                     'status'  => false,
@@ -130,17 +118,19 @@ class AuthServices
                 'email_verified_at' => Carbon::now()
             ]);
 
-            //create  user Org name DB 
-            $organization = $user->organizations()->first();
-            if ($organization) {
-                 $organization->update(['status' => true]);
+           
+           
 
+            $organization = $user->organizations()->first();
+
+            $common = new CommonService();
+            if ($organization) {
                 //Create dynamic DB
-                $dbName = $organization->db_name ?? Str::slug($organization->org_name, '_');
-                DB::statement("CREATE DATABASE IF NOT EXISTS `$dbName`");
+                $common->activateOrganization($organization);
             }
-            $authToken->update(['revoked_at' => Carbon::now()]);
             
+             $authToken->update(['revoked_at' => Carbon::now()]);
+
             return [
                 'status'  => true,
                 'message' => __('auth.mail_verification'),
@@ -151,17 +141,20 @@ class AuthServices
 
             Log::error('Error in verify email', ['error_message' => $e->getMessage()]);
         }
+
     }
 
     //user login
     public function userLogin($data)
     {
 
+
     try {
-        $user =  User::where('email', $data['email'])->first();
+
+        $user =  User::findBy('email', $data['email']);
 
         // Check if user is found
-        if(!$user){
+        if (!$user) {
             return [
                 'status'  => false,
                 'message' => __('auth.login_failed'),
@@ -170,7 +163,7 @@ class AuthServices
         }
 
         // Check if user is locked
-        if($user->lockout_time && $user->lockout_time > now()){
+        if ($user->lockout_time && $user->lockout_time > now()) {
             return [
                 'status'  => false,
                 'message' => __('auth.login_attempts'),
@@ -184,39 +177,39 @@ class AuthServices
             'password' => $data['password'],
         ];
 
-        if(!Auth::attempt($userData)){
+        if (!Auth::attempt($userData)) {
 
             $user->increment('failed_attempts');
 
-             //Lock Login in 5 minutes
-             if($user->failed_attempts >= 5) {
+            //Lock Login in 5 minutes
+            if ($user->failed_attempts >= 5) {
                 $user->update([
                     'lockout_time' => now()->addMinutes(5), // lock 5 mins
                     'failed_attempts' => 0 
             ]);
-            return [
-                'status'  => false,
-                'message' => __('auth.login_attempts'),
-                'code'    => 403
-            ];
+                return [
+                    'status'  => false,
+                    'message' => __('auth.login_attempts'),
+                    'code'    => 403
+                ];
             }
             return [
                 'status'  => false,
-                'message' =>  __('auth.login_failed'),
-                'code'    => 404
-            ];
+                'message' =>  __('auth.login_failed'),                  
+                ];
+                
         }
-
         $user->update([
             'last_login_at'   => Carbon::now(),
             'lockout_time'    => null
         ]);
 
         $tokenResult = $user->createToken('userToken');
+        
         $token = $tokenResult->accessToken;
         $tokenExpiry = $tokenResult->token->expires_at;
 
-        Log::error('organization' , ['organization' =>  $user->organizations]);
+        Log::error('organization', ['organization' =>  $user->organizations]);
         // Log::info('token expires time', ['token' => $tokenExpiry]);
 
         return [
@@ -255,8 +248,10 @@ class AuthServices
     //send forgot password link to mail
     public function submitForgotPasswordForm($data)
     {
+
         try{
-            $user = User::where('email', $data['email'])->first();
+            $common = new CommonService();
+            $user =  User::findBy('email', $data['email']);
 
             // Check if user email is found
             if(!$user){
@@ -271,13 +266,11 @@ class AuthServices
             $token = Str::random(64);
 
             //insert the token&email into (password_reset_tokens) table
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $data['email']],
-                [
-                    'token' => $token,
-                    'created_at' => Carbon::now()
-                ]
-            );
+              $common->updateOrInsert(
+                        'password_reset_tokens',
+                        ['email' => $data['email']],
+                        ['token' => $token,'created_at' => Carbon::now()]
+                    );
 
             $resetPasswordLink = url('/reset-password?token=' . $token);
             $htmlContent = "
@@ -305,12 +298,16 @@ class AuthServices
     //submit reset password
     public function submitResetPasswordForm($data)
     {
+
         try{
+            $common = new CommonService();
+
             //check if the email and token exist in the Table
-            $record = DB::table('password_reset_tokens')
-                    ->where('email', $data['email'])
-                    ->where('token', $data['token'])
-                    ->first();
+             $record = $common->findRecord('password_reset_tokens', [
+                'email' => $data['email'],
+                'token' => $data['token'],
+            ]);
+
 
             //if the record is not found
             if(!$record){
@@ -321,14 +318,17 @@ class AuthServices
                 ];
             }    
 
-            //Update the User Password
-            User::where('email', $data['email'])
-                ->update(['password' => Hash::make($data['password'])]);
+            $user =  User::findBy('email', $data['email']);
 
-            //if the password is updated the reset token is removed form the table
-            DB::table('password_reset_tokens')
-                ->where('email', $data['email'])
-                ->delete();
+             //Update the User Password
+            if ($user) {
+                $user->update(['password' => Hash::make($data['password'])]);
+            }
+
+            //delete the password reset token
+            $common->deleteRecord('password_reset_tokens', [
+                'email' => $data['email'],
+            ]);
 
              return [
                 'status'  => 'success',
@@ -338,7 +338,9 @@ class AuthServices
         }catch(Throwable $e){
             Log::error('error in reset password', ['error_message' => $e->getMessage()]);
         }
+
     }
+
 
     //Change Password(after Login)
     public function changePassword($data)
@@ -361,7 +363,6 @@ class AuthServices
             //update the password
             $user->password = Hash::make($newPassword);
             $user->save();
-
             return [
                 'status'  => true,
                 'code'    => 200,
