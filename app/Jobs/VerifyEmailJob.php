@@ -6,13 +6,14 @@ use App\Services\CommonService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-class VerifyEmailJob implements ShouldQueue
+
+class verifyEmailJob implements ShouldQueue
 {
     use Queueable;
 
     protected $data;
     protected $verificationLink;
-    protected string $type;
+    protected $type;
 
     public function __construct(array $data, string $verificationLink, string $type)
     {
@@ -24,15 +25,17 @@ class VerifyEmailJob implements ShouldQueue
     /**
      * Execute the job.
      */
+
     public function handle(CommonService $CommonService): void
     {
 
         if ($this->type === 'verify') {
-            $CommonService->sendVerifyEmail($this->data, $this->verificationLink);
+            $CommonService->sendVerifyEmail($this->data, $this->verificationLink);           
         } elseif ($this->type === 'forgot') {
             $CommonService->sendForgotPasswordEmail($this->data, $this->verificationLink);
         }
     }
 
-    }
+}
+
 

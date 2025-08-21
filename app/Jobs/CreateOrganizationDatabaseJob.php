@@ -12,6 +12,7 @@ use App\Models\User;
 use Database\Seeders\TenantSeeder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
+use Exception;
 
 class CreateOrganizationDatabaseJob implements ShouldQueue
 {
@@ -65,9 +66,10 @@ class CreateOrganizationDatabaseJob implements ShouldQueue
                 '--path' => 'database/migrations/tenant',
                 '--force' => true,
             ]);
-            
-            Log::info("✅ Successfully created and seeded database: $dbName");
-        } catch (\Exception $e) {
+
+             Log::info("✅ Successfully created and seeded database: $dbName");
+        } catch (Exception $e) {
+
             Log::error("❌ Failed to create tenant database: " . $e->getMessage());
             throw $e;
         }

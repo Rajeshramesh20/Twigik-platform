@@ -5,48 +5,51 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Support\Constants;
 use Illuminate\Http\Request;
+
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\UserLoginRequest;
 use App\Http\Requests\Auth\ForgetPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\ChangePasswordRequest;
-use Exception;
+
 use App\Services\AuthServices;
+use App\Http\Resources\Auth\RegistrationResource;
 use Throwable;
+use Exception;
+
 
 class AuthController extends Controller
 {
     //User Registration
     public function register(RegisterRequest $request, AuthServices $auth_services)
     {
-
-        DB::beginTransaction();
-        
+        DB::beginTransaction();      
         try {
-          $validated = $request->validated();
+            $validated = $request->validated();
          
-           $user = $auth_services->register($validated);
+            $user = $auth_services->register($validated);
 
             DB::commit();
 
             if ($user) {
                 return response([
-                    'status'  => true,
-                    'data'    => $user,
+                    'status'  => Constants::BOOLEAN_TRUE_VALUE,
+                    'data'    => new RegistrationResource($user),
                     'message' => __('auth.signup_succes'),
-                ], 201);
+                ], Constants::CREATED);
             }
 
-    }catch(Throwable  $e){
+        }catch(Throwable  $e){
 
             DB::rollBack();
 
             Log::error('Registration failed', ['error_message' => $e->getMessage()]);
             return response([
-                'status'  => false, 
+                'status'  => Constants::BOOLEAN_FALSE_VALUE, 
                 'message' => __('auth.signup_failed')
-            ], 500);
+            ], Constants::SERVER_ERROR);
     }
      
  }
@@ -60,9 +63,9 @@ class AuthController extends Controller
 
             if (!$token) {
                 return response()->json([
-                    'status'  => false,
+                    'status'  => Constants::BOOLEAN_FALSE_VALUE,
                     'message' => __('auth.token')
-                ], 400);
+                ], Constants::BAD_REQUEST);
             }
 
             $result = $auth_services->verifyEmail($token);
@@ -74,20 +77,18 @@ class AuthController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'status'  => false,
-                'message' => 'Something went wrong',
+                'status'  => Constants::BOOLEAN_FALSE_VALUE,
                 'error'   => $e->getMessage()
-            ], 500);
+            ], Constants::SERVER_ERROR);
         }
     }
 
     // User Login 
     public function userLogin(UserLoginRequest $request, AuthServices $login)
     {
-
       try {
-        $validatedData = $request->validated();
-        $data = $login->userLogin($validatedData);
+            $validatedData = $request->validated();
+            $data = $login->userLogin($validatedData);
 
             if (!$data['status']) {
                 return response()->json([
@@ -107,62 +108,61 @@ class AuthController extends Controller
                 ],
             ], $data['code']);
 
-    } catch (Throwable $e) {
-        Log::error('Error In login User: ' . $e->getMessage());
+        } catch (Throwable $e) {
+            Log::error('Error In login User: ' . $e->getMessage());
 
-        return response()->json([
-            'status'  => false,
-            'message' => __('auth.login_failed'),
-            'error'   => $e->getMessage()
-        ], 500);
-     }
- }
+            return response()->json([
+                'status'  => Constants::BOOLEAN_FALSE_VALUE,
+                'message' => __('auth.login_failed'),
+                'error'   => $e->getMessage()
+            ], Constants::SERVER_ERROR);
+        }
+    }
 
     // User Logout 
     public function userLogout(Request $request, AuthServices $logout)
     {
-            try{
-             $userLogout = $logout->userLogout($request);
+        try{
+            $userLogout = $logout->userLogout($request);
 
-             if($userLogout){
+            if($userLogout){
                 return response()->json([
                     'status'  => $userLogout['status'],
                     'message' => $userLogout['message']
                 ],$userLogout['code']);
-             }
-
-            }catch(Throwable $e){
-                Log::error('Error In login User: ' . $e->getMessage());
-
-                return response()->json([
-                    'status'  => false,
-                    'message' => __('auth.logout_failed'),
-                    'error'   => $e->getMessage()
-                ], 500);
             }
+
+        }catch(Throwable $e){
+            Log::error('Error In login User: ' . $e->getMessage());
+
+            return response()->json([
+                'status'  => Constants::BOOLEAN_FALSE_VALUE,
+                'message' => __('auth.logout_failed'),
+                'error'   => $e->getMessage()
+            ], Constants::SERVER_ERROR);
         }
+    }
 
 
     //forgot password
     public function submitForgetPassword(ForgetPasswordRequest $request, AuthServices $AuthService)
-        {
-            try{
-                $data = $request->validated();
-                $result = $AuthService->submitForgotPasswordForm($data);
-                if($result){
-                    return response()->json([
-                        'status' => $result['status'],
-                        'message' => $result['message']
-                    ], $result['code']);
-                }
-            }catch(Exception $e){
+    {
+        try{
+            $data = $request->validated();
+            $result = $AuthService->submitForgotPasswordForm($data);
+            if($result){
                 return response()->json([
-                    'success' => false,
-                    'message' => 'failed to send email.',
-                    'error' => $e->getMessage()
-                ]);
+                    'status' => $result['status'],
+                    'message' => $result['message']
+                ], $result['code']);
             }
+        }catch(Exception $e){
+            return response()->json([
+                'success' => Constants::BOOLEAN_FALSE_VALUE,
+                'error' => $e->getMessage()
+            ]);
         }
+    }
 
 
     // send reset password link
@@ -180,7 +180,7 @@ class AuthController extends Controller
 
         } catch (Exception $e) {
             return response()->json([
-                'status' => false,
+                'status' => Constants::BOOLEAN_FALSE_VALUE,
                 'message' => __('auth.change_password_failed'),
                 'error' => $e->getMessage()
             ]);
@@ -204,7 +204,7 @@ class AuthController extends Controller
         }catch(Exception $e){
             Log::error('error in change password' . $e->getMessage());
             return response()->json([
-                'status' => false,
+                'status' => Constants::BOOLEAN_FALSE_VALUE,
                 'message' => $e->getMessage()
             ]);
         }

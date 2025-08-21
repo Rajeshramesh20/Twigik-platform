@@ -23,8 +23,8 @@ class AppServiceProvider extends ServiceProvider
     {
          $this->registerPolicies();
          
-        Passport::tokensExpireIn(now()->addMinutes(60));
-        Passport::refreshTokensExpireIn(now()->addMinutes(60));
-        Passport::personalAccessTokensExpireIn(now()->addMinutes(60));
+        Passport::tokensExpireIn(now()->addMinutes(1));
+        Passport::refreshTokensExpireIn(now()->addMinutes(1));
+        Passport::personalAccessTokensExpireIn(now()->addMinutes(1));
     }
 }

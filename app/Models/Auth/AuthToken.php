@@ -30,6 +30,7 @@ class AuthToken extends Model
         return $this->belongsTo(User::class , 'user_id');
     }
 
+    
     public static function findActiveByToken(string $token)
     {
         return self::where('token', $token)

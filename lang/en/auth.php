@@ -26,3 +26,5 @@ return [
         'change_password_success' => 'Password changed successfully.',
         'change_password_failed' => 'failed to change password.'
 ];
+
+?>
