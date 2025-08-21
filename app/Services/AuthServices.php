@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\CommonService;
 
 
+
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
 
@@ -44,13 +45,16 @@ class AuthServices
                 'is_deleted'      => false,
             ]);
 
+            $Organization_token = Str::random(64);
             //create Organization Table
             $organization = Organization::create([
+                'uuid'       => $data['uuid'] ?? Str::uuid()->toString(),
                 'org_name'   => $data['org_name'],
-                'db_name'    => $data['db_name'] ?? null,
-                'db_user'    => $data['db_user'] ?? null,
+                'db_name'    => $data['db_name'] ?? str::slug($data['org_name']),
+                'db_user'    => $data['db_user'] ?? str::slug($data['org_name']) . '_user',
                 'db_pswd'    => $data['db_pswd'] ?? null,
-                'status'     => $data['status'] ?? true,
+                'token'      => $Organization_token,
+                'status'     => $data['status'] ?? false,
                 'is_deleted' => false,
             ]);
 
@@ -144,8 +148,6 @@ class AuthServices
     //user login
     public function userLogin($data)
     {
-
-
         try {
 
             $user =  User::findBy('email', $data['email']);
@@ -270,7 +272,7 @@ class AuthServices
 
             $resetPasswordLink = url('/reset-password?token=' . $token);
             verifyEmailJob::dispatch($data, $resetPasswordLink, 'forgot');
-
+            
             return [
                 'status'  => 'success',
                 'message' => __('auth.reset_link') . $data['email'],

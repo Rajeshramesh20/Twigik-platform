@@ -12,7 +12,7 @@ use App\Models\Auth\EmailVerify;
 
 
 class CommonService
-{   
+{
     public function findRecord($table, $conditions)
     {
         return DB::table($table)
@@ -23,14 +23,14 @@ class CommonService
     public function deleteRecord($table, $conditions)
     {
         return DB::table($table)
-        ->where($conditions)
-        ->delete();
+            ->where($conditions)
+            ->delete();
     }
 
     public function updateOrInsert($table, $conditions, $values)
     {
         return DB::table($table)
-        ->updateOrInsert($conditions, $values);
+            ->updateOrInsert($conditions, $values);
     }
 
 
@@ -39,14 +39,17 @@ class CommonService
         // Mark organization as active
         $organization->update(['status' => true]);
 
+        $user = $organization->users()->latest()->first();
+
         // Queue DB creation
-        CreateOrganizationDatabaseJob::dispatch($organization);
+        CreateOrganizationDatabaseJob::dispatch($organization,$user);
     }
 
 
-    public function sendVerifyEmail($data, $verificationLink){
+    public function sendVerifyEmail($data, $verificationLink)
+    {
 
-        $template = EmailVerify::findBy('key', 'password_reset');
+        $template = EmailVerify::findBy('key', 'verify_email');
 
         $bodyContent = str_replace(
             ['{{name}}', '{{verification_link}}'],
@@ -59,17 +62,17 @@ class CommonService
             $message->to($data['email'])
                 ->subject($template->subject)
                 ->html($bodyContent);
-        });   
+        });
     }
 
     public function sendForgotPasswordEmail($data, $resetPasswordLink)
     {
 
         $template = EmailVerify::findBy('key', 'password_reset');
-          
+
         $bodyContent = str_replace(
-            ['{{verification_link}}'],
-            [$resetPasswordLink],
+            '{{reset_link}}',
+            $resetPasswordLink,
             $template->body
         );
 
