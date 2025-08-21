@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\User;
 use Database\Seeders\TenantSeeder;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 
@@ -57,15 +58,21 @@ class CreateOrganizationDatabaseJob implements ShouldQueue
 
         // 4) Test connection before migrating
         try {
-            DB::connection('tenant')->getPdo();
-
+            
             // 5) Run migrations
             Artisan::call('migrate', [
                 '--database' => 'tenant',
                 '--path' => 'database/migrations/tenant',
                 '--force' => true,
             ]);
-            // Log::info("✅ Successfully created and seeded database: $dbName");
+
+            Artisan::call('db:seed', [
+                '--database' => 'tenant',
+                '--class' => DatabaseSeeder::class,
+                '--force' => true,
+            ]);
+
+             Log::info("✅ Successfully created and seeded database: $dbName");
         } catch (Exception $e) {
             Log::error("❌ Failed to create tenant database: " . $e->getMessage());
             throw $e;
