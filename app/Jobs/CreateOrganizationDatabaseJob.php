@@ -67,7 +67,7 @@ class CreateOrganizationDatabaseJob implements ShouldQueue
                 '--force' => true,
             ]);
 
-            // Log::info("✅ Successfully created and seeded database: $dbName");
+             Log::info("✅ Successfully created and seeded database: $dbName");
         } catch (Exception $e) {
             Log::error("❌ Failed to create tenant database: " . $e->getMessage());
             throw $e;
