@@ -14,10 +14,12 @@ class Organization extends Model
     protected $primaryKey = 'org_id';
     
     protected $fillable = [
+        'uuid',
         'org_name',
         'db_name',
         'db_user',
         'db_pswd',
+        'token',
         'status',
         'is_deleted'
     ];
@@ -26,6 +28,6 @@ class Organization extends Model
 
      public function users()
     {
-        return $this->belongsToMany(User::class, 'organization_users', 'user_id', 'org_id');
+        return $this->belongsToMany(User::class, 'organization_users', 'org_id','user_id');
     }
 }

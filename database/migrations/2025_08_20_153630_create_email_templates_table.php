@@ -39,10 +39,8 @@ return new class extends Migration
                 'key'     => 'password_reset',
                 'subject' => 'Reset Your Password',
                 'body'    => "
-                    Hi {{name}},<br><br>
                     You requested to reset your password. Click the link below to reset it:<br>
                     <a href='{{reset_link}}'>Reset Password</a><br><br>
-                    This link will expire in 30 minutes.<br><br>
                     If you did not request a password reset, please ignore this email.<br><br>
                     Regards,<br>Your App Team
                 ",

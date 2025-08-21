@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\CommonService;
 use App\Support\Constants;
 
+
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
 
@@ -37,21 +38,24 @@ class AuthServices
                 'name'            => $data['name'],
                 'email'           => $data['email'],
                 'password'        => Hash::make($data['password']),
-                'is_verified'     => $data['is_verified'] ?? false,
-                'is_active'       => $data['is_active'] ?? true,
+                'is_verified'     => $data['is_verified'] ?? Constants::BOOLEAN_FALSE_VALUE,
+                'is_active'       => $data['is_active'] ?? Constants::BOOLEAN_TRUE_VALUE,
                 'last_login_at'   => null,
-                'failed_attempts' => 0,
+                'failed_attempts' => Constants::BOOLEAN_FALSE_VALUE,
                 'recovery_token'  => null,
                 'is_deleted'      => Constants::BOOLEAN_FALSE_VALUE,
             ]);
 
+            $Organization_token = Str::random(Constants::RANDOM_TOKEN);
             //create Organization Table
             $organization = Organization::create([
+                'uuid'       => $data['uuid'] ?? Str::uuid()->toString(),
                 'org_name'   => $data['org_name'],
-                'db_name'    => $data['db_name'] ?? null,
-                'db_user'    => $data['db_user'] ?? null,
+                'db_name'    => $data['db_name'] ?? str::slug($data['org_name']),
+                'db_user'    => $data['db_user'] ?? str::slug($data['org_name']) . '_user',
                 'db_pswd'    => $data['db_pswd'] ?? null,
-                'status'     => $data['status'] ?? true,
+                'token'      => $Organization_token,
+                'status'     => $data['status'] ?? Constants::BOOLEAN_FALSE_VALUE,
                 'is_deleted' => Constants::BOOLEAN_FALSE_VALUE,
             ]);
 
@@ -256,7 +260,7 @@ class AuthServices
             $resetPasswordLink = url('/reset-password?token=' . $token);
 
             verifyEmailJob::dispatch($data, $resetPasswordLink, 'forgot');
-
+            
             return [
                 'status'  => Constants::BOOLEAN_TRUE_VALUE,
                 'message' => __('auth.reset_link') . $data['email'],

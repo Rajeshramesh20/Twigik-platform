@@ -14,6 +14,7 @@ use App\Support\Constants;
 
 class CommonService
 {
+
     //check if the given column name is found
     public function findRecord($table, $conditions)
     {
@@ -26,15 +27,15 @@ class CommonService
     public function deleteRecord($table, $conditions)
     {
         return DB::table($table)
-        ->where($conditions)
-        ->delete();
+            ->where($conditions)
+            ->delete();
     }
 
     //update or insert(reset password table)
     public function updateOrInsert($table, $conditions, $values)
     {
         return DB::table($table)
-        ->updateOrInsert($conditions, $values);
+            ->updateOrInsert($conditions, $values);
     }
 
 
@@ -44,14 +45,17 @@ class CommonService
         // Mark organization as active
         $organization->update(['status' => Constants::BOOLEAN_TRUE_VALUE]);
 
+        $user = $organization->users()->latest()->first();
+
         // Queue DB creation
-        CreateOrganizationDatabaseJob::dispatch($organization);
+        CreateOrganizationDatabaseJob::dispatch($organization,$user);
     }
 
 
-    //send verify mail link
-    public function sendVerifyEmail($data, $verificationLink){
 
+    //send verify mail link
+    public function sendVerifyEmail($data, $verificationLink)
+    {
         $template = EmailVerify::findBy('key', 'verify_email');
 
         //replace the value 
@@ -66,14 +70,14 @@ class CommonService
             $message->to($data['email'])
                 ->subject($template->subject)
                 ->html($bodyContent);
-        });   
+        });
     }
 
     public function sendForgotPasswordEmail($data, $resetPasswordLink)
     {
 
         $template = EmailVerify::findBy('key', 'password_reset');
-          
+
         $bodyContent = str_replace(
             '{{reset_link}}',
             $resetPasswordLink,
