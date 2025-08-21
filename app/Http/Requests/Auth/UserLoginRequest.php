@@ -34,7 +34,7 @@ class UserLoginRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     $user = DB::table('users')->where('email', $value)->first();
                     if (!$user) {
-                        $fail('The selected email is invalid.');
+                        $fail('The email is invalid.');
                     } elseif (!$user->is_verified) {
                         $fail('Email is not verified!');
                     }

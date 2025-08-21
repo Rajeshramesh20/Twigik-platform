@@ -14,8 +14,9 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Services\CommonService;
 
+use App\Services\CommonService;
+use App\Support\Constants;
 
 use App\Http\Resources\Auth\LoginResource;
 use App\Http\Resources\Auth\OrgResource;
@@ -41,7 +42,7 @@ class AuthServices
                 'last_login_at'   => null,
                 'failed_attempts' => 0,
                 'recovery_token'  => null,
-                'is_deleted'      => false,
+                'is_deleted'      => Constants::BOOLEAN_FALSE_VALUE,
             ]);
 
             //create Organization Table
@@ -51,25 +52,25 @@ class AuthServices
                 'db_user'    => $data['db_user'] ?? null,
                 'db_pswd'    => $data['db_pswd'] ?? null,
                 'status'     => $data['status'] ?? true,
-                'is_deleted' => false,
+                'is_deleted' => Constants::BOOLEAN_FALSE_VALUE,
             ]);
 
             //Create Pivot Table
             OrganizationUser::create([
                 'org_id'     => $organization->org_id,
                 'user_id'    => $user->user_id,
-                'status'     => true,
-                'is_deleted' => false,
+                'status'     => Constants::BOOLEAN_TRUE_VALUE,
+                'is_deleted' => Constants::BOOLEAN_FALSE_VALUE,
             ]);
 
 
             // Generate Email Verification Token
-            $token = Str::random(64);
+            $token = Str::random(Constants::RANDOM_TOKEN);
 
             AuthToken::create([
                 'user_id'    => $user->user_id,
                 'token'      => $token,
-                'expires_at' => Carbon::now()->addMinutes(30), // token valid for 30 min
+                'expires_at' => Carbon::now()->addMinutes(Constants::TOKEN_ADD_MINUTES), // token valid for 30 min
                 'revoked_at' => null,
             ]);
 
@@ -98,18 +99,18 @@ class AuthServices
 
             if (!$authToken) {
                 return [
-                    'status'  => false,
+                    'status'  => Constants::BOOLEAN_FALSE_VALUE,
                     'message' => __('auth.invalid_token'),
-                    'code'    => 400
+                    'code'    => Constants::BAD_REQUEST
                 ];
             }
 
             // Check if token is expiry
             if (Carbon::now()->greaterThan($authToken->expires_at)) {
                 return [
-                    'status'  => false,
+                    'status'  => Constants::BOOLEAN_FALSE_VALUE,
                     'message' => __('auth.expiry_token'),
-                    'code'    => 400
+                    'code'    => Constants::BAD_REQUEST
                 ];
             }
 
@@ -117,7 +118,7 @@ class AuthServices
 
             //update the email verify column
             $user->update([
-                'is_verified' => true,
+                'is_verified' => Constants::BOOLEAN_TRUE_VALUE,
                 'email_verified_at' => Carbon::now()
             ]);
 
@@ -134,9 +135,9 @@ class AuthServices
             $authToken->update(['revoked_at' => Carbon::now()]);
 
             return [
-                'status'  => true,
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
                 'message' => __('auth.mail_verification'),
-                'code'    => 200
+                'code'    => Constants::SUCCESS
             ];
         } catch (Throwable $e) {
 
@@ -148,24 +149,14 @@ class AuthServices
     public function userLogin($data)
     {
         try {
-
             $user =  User::findBy('email', $data['email']);
-
-            // Check if user is found
-            if (!$user) {
-                return [
-                    'status'  => false,
-                    'message' => __('auth.login_failed'),
-                    'code'    => 401
-                ];
-            }
 
             // Check if user is locked
             if ($user->lockout_time && $user->lockout_time > now()) {
                 return [
-                    'status'  => false,
+                    'status'  => Constants::BOOLEAN_FALSE_VALUE,
                     'message' => __('auth.login_attempts'),
-                    'code'    => 403
+                    'code'    => Constants::FORBIDDEN
                 ];
             }
 
@@ -180,20 +171,21 @@ class AuthServices
                 $user->increment('failed_attempts');
 
                 //Lock Login in 5 minutes
-                if ($user->failed_attempts >= 5) {
+                if ($user->failed_attempts >= Constants::LOGIN_FAILED_ATTEMPTS) {
                     $user->update([
-                        'lockout_time' => now()->addMinutes(5), // lock 5 mins
-                        'failed_attempts' => 0
+                        'lockout_time' => now()->addMinutes(Constants::LOCKOUT_TIME), // lock 5 mins
+                        'failed_attempts' => Constants::BOOLEAN_FALSE_VALUE
                     ]);
                     return [
-                        'status'  => false,
+                        'status'  => Constants::BOOLEAN_FALSE_VALUE,
                         'message' => __('auth.login_attempts'),
-                        'code'    => 403
+                        'code'    => Constants::TOO_MANY_REQUESTS
                     ];
                 }
                 return [
-                    'status'  => false,
+                    'status'  => Constants::BOOLEAN_FALSE_VALUE,
                     'message' =>  __('auth.login_failed'),
+                    'code'    => Constants::UNAUTHORIZED
                 ];
             }
             $user->update([
@@ -201,8 +193,8 @@ class AuthServices
                 'lockout_time'    => null
             ]);
 
+            //create token 
             $tokenResult = $user->createToken('userToken');
-
             $token = $tokenResult->accessToken;
             $tokenExpiry = $tokenResult->token->expires_at;
 
@@ -210,13 +202,13 @@ class AuthServices
             // Log::info('token expires time', ['token' => $tokenExpiry]);
 
             return [
-                'status'  => true,
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
                 'message' => __('auth.login_success'),
                 'data'    =>  new LoginResource(auth()->user()),
                 'organization' => OrgResource::collection($user->organizations),
                 'token'   => $token,
                 'expires_in' => $tokenExpiry->diffInSeconds(now()),
-                'code'    => 200
+                'code'    => Constants::SUCCESS
             ];
         } catch (Throwable $e) {
             Log::error('Login Failed', ['error_message' => $e->getMessage()]);
@@ -228,13 +220,13 @@ class AuthServices
     public function userLogout($request)
     {
         try {
-            // token is revoke(1)
+            // when logout, token is revoke(1) from the oauth_access_token_table
             $request->user()->token()->revoke();
 
             return [
-                'status'  => true,
-                'message' => __('auth.logout'),
-                'code'    => 200
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
+                'message' => __('auth.logout_success'),
+                'code'    => Constants::SUCCESS
             ];
         } catch (Throwable $e) {
             Log::error('Error: logout failed', ['error_message' => $e->getMessage()]);
@@ -250,17 +242,8 @@ class AuthServices
             $common = new CommonService();
             $user =  User::findBy('email', $data['email']);
 
-            // Check if user email is found
-            if (!$user) {
-                return [
-                    'status' => 'error',
-                    'message' => __('auth.email_error'),
-                    'code'    => 404
-                ];
-            }
-
             //create random token
-            $token = Str::random(64);
+            $token = Str::random(Constants::RANDOM_TOKEN);
 
             //insert the token&email into (password_reset_tokens) table
             $common->updateOrInsert(
@@ -275,9 +258,9 @@ class AuthServices
             verifyEmailJob::dispatch($data, $resetPasswordLink, 'forgot');
 
             return [
-                'status'  => 'success',
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
                 'message' => __('auth.reset_link') . $data['email'],
-                'code'    => 200
+                'code'    => Constants::SUCCESS
             ];
         } catch (Throwable $e) {
             Log::error('error in submit forgetpassword', ['error_message' => $e->getMessage()]);
@@ -297,16 +280,6 @@ class AuthServices
                 'token' => $data['token'],
             ]);
 
-
-            //if the record is not found
-            if (!$record) {
-                return [
-                    'status'  => 'error',
-                    'message' => __('auth.token_email_err'),
-                    'code'    => 400
-                ];
-            }
-
             $user =  User::findBy('email', $data['email']);
 
             //Update the User Password
@@ -320,9 +293,9 @@ class AuthServices
             ]);
 
             return [
-                'status'  => 'success',
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
                 'message' => __('auth.reset_password'),
-                'code'    => 200
+                'code'    => Constants::SUCCESS
             ];
         } catch (Throwable $e) {
             Log::error('error in reset password', ['error_message' => $e->getMessage()]);
@@ -342,8 +315,8 @@ class AuthServices
             //check the current password is same the user password
             if (!Hash::check($currentPassword, $user->password)) {
                 return [
-                    'status'    => false,
-                    'code'      => 400,
+                    'status'    => Constants::BOOLEAN_FALSE_VALUE,
+                    'code'      => Constants::UNAUTHORIZED,
                     'message'   => __('auth.change_password_err')
                 ];
             }
@@ -352,8 +325,8 @@ class AuthServices
             $user->password = Hash::make($newPassword);
             $user->save();
             return [
-                'status'  => true,
-                'code'    => 200,
+                'status'  => Constants::BOOLEAN_TRUE_VALUE,
+                'code'    => Constants::SUCCESS,
                 'message' => __('auth.change_password_success')
             ];
         } catch (Throwable $e) {

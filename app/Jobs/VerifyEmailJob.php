@@ -13,6 +13,7 @@ class verifyEmailJob implements ShouldQueue
 
     protected $data;
     protected $verificationLink;
+    protected $type;
 
     public function __construct(array $data, string $verificationLink, string $type)
     {
@@ -29,7 +30,7 @@ class verifyEmailJob implements ShouldQueue
     {
 
         if ($this->type === 'verify') {
-            $CommonService->sendVerifyEmail($this->data, $this->verificationLink);
+            $CommonService->sendVerifyEmail($this->data, $this->verificationLink);           
         } elseif ($this->type === 'forgot') {
             $CommonService->sendForgotPasswordEmail($this->data, $this->verificationLink);
         }

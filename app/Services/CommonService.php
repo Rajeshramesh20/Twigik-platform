@@ -9,7 +9,7 @@ use App\Jobs\CreateOrganizationDatabaseJob;
 use App\Models\Auth\Organization;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Auth\EmailVerify;
-
+use App\Support\Constants;
 
 
 class CommonService
@@ -42,7 +42,7 @@ class CommonService
     public function activateOrganization(Organization $organization)
     {
         // Mark organization as active
-        $organization->update(['status' => true]);
+        $organization->update(['status' => Constants::BOOLEAN_TRUE_VALUE]);
 
         // Queue DB creation
         CreateOrganizationDatabaseJob::dispatch($organization);
@@ -52,7 +52,7 @@ class CommonService
     //send verify mail link
     public function sendVerifyEmail($data, $verificationLink){
 
-        $template = EmailVerify::findBy('key', 'password_reset');
+        $template = EmailVerify::findBy('key', 'verify_email');
 
         //replace the value 
         $bodyContent = str_replace(
@@ -75,8 +75,8 @@ class CommonService
         $template = EmailVerify::findBy('key', 'password_reset');
           
         $bodyContent = str_replace(
-            ['{{verification_link}}'],
-            [$resetPasswordLink],
+            '{{reset_link}}',
+            $resetPasswordLink,
             $template->body
         );
 
